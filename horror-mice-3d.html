@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Infestation 3D</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Creepster&display=swap">
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;background:#030202;color:#b8b0a4;font-family:Georgia,'Times New Roman',serif}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#intro{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;padding:5vh 20px calc(6vh + env(safe-area-inset-bottom,0px));transition:opacity .6s;pointer-events:none}
+#intro.off{opacity:0;pointer-events:none}
+h1{font-family:Creepster,Chiller,fantasy;font-weight:400;font-size:clamp(2.2rem,8vw,5rem);margin:0 0 .2em;letter-spacing:.08em;color:#a31212;text-shadow:0 0 18px #500;animation:flick 4s infinite}
+p{opacity:.7;margin:0 0 2em;font-style:italic}
+a.go{pointer-events:auto;position:relative;display:inline-block;padding:.8em 2.2em;font-family:Creepster,Chiller,fantasy;font-size:clamp(1.4rem,4.5vw,2rem);letter-spacing:.14em;color:#b9d27a;text-decoration:none;text-transform:uppercase;background:linear-gradient(#2e3d1d,#121809);border:2px solid #4b5a2a;border-radius:6px 16px 8px 18px;text-shadow:0 0 8px #6f9a22,2px 2px 0 #000;box-shadow:inset 0 0 18px #000,0 0 24px rgba(90,140,20,.35);animation:twitch 3.2s infinite;transition:.25s}
+a.go::after{content:"";position:absolute;left:4%;right:4%;top:calc(100% - 2px);height:52px;pointer-events:none;transform-origin:top;animation:drip 2.6s ease-in infinite alternate;background:linear-gradient(#8a0b0b,#5a0505) 8% 0/6px 30px no-repeat,linear-gradient(#8a0b0b,#5a0505) 30% 0/5px 48px no-repeat,linear-gradient(#8a0b0b,#5a0505) 55% 0/7px 22px no-repeat,linear-gradient(#8a0b0b,#5a0505) 78% 0/5px 38px no-repeat,linear-gradient(#8a0b0b,#5a0505) 94% 0/6px 26px no-repeat}
+@keyframes drip{from{transform:scaleY(.35)}to{transform:scaleY(1)}}
+@keyframes twitch{0%,93%,100%{transform:none}94%{transform:translate(-3px,2px) skewX(3deg)}96%{transform:translate(3px,-1px) skewX(-3deg)}98%{transform:translate(-1px,1px)}}
+a.go:hover{background:linear-gradient(#5a0808,#220202);border-color:#a31212;box-shadow:inset 0 0 18px #000,0 0 40px #a00;color:#fff;text-shadow:0 0 10px #f33,2px 2px 0 #000;transform:scale(1.07)}
+@keyframes flick{0%,92%,100%{opacity:1}93%{opacity:.2}95%{opacity:.9}97%{opacity:.1}}
+#flash{position:fixed;inset:0;z-index:20;background:#b00;opacity:0;pointer-events:none}
+#vig{position:fixed;inset:0;z-index:15;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.85) 100%)}
+#more{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));right:16px;z-index:30;display:none;background:#200;color:#caa;border:1px solid #8a0b0b;padding:.6em 1em;font-family:inherit;cursor:pointer}
+#gh{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;color:#9a9a8a;font-size:.9rem;letter-spacing:.12em;text-decoration:none;padding:.5em .9em;border:1px solid #3a1a1a;background:rgba(20,0,0,.5);transition:.25s}
+#gh:hover{color:#fff;border-color:#a31212;box-shadow:0 0 18px #a00}
+</style>
+</head>
+<body>
+<div id="intro"><div><h1>THE INFESTATION</h1><p>It has been watching you...</p></div><a class="go" id="go" href="#open">Dare to click</a></div>
+<div id="vig"></div><div id="flash"></div>
+<button id="more">+ more</button>
+<a id="gh" href="https://github.com/vishnumadnanidevin-ctrl" target="_blank" rel="noopener">GitHub</a>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const T=THREE;
+const scene=new T.Scene();scene.background=new T.Color(0x030202);scene.fog=new T.FogExp2(0x030202,.04);
+const cam=new T.PerspectiveCamera(62,1,.05,200);cam.position.set(0,1.6,10);
+const ren=new T.WebGLRenderer({antialias:true});ren.setPixelRatio(Math.min(devicePixelRatio,2));
+document.body.insertBefore(ren.domElement,document.body.firstChild);
+function resize(){ren.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
+addEventListener('resize',resize);resize();
+
+scene.add(new T.AmbientLight(0x2a1515,.7));
+const torch=new T.PointLight(0xffe0bd,2.2,45,1.6);torch.position.set(0,3,6);scene.add(torch);
+const back=new T.DirectionalLight(0x7a1010,.6);back.position.set(0,6,-12);scene.add(back);
+const under=new T.PointLight(0xff3010,2.2,14,1.5);under.position.set(0,.1,9);scene.add(under);
+
+function noise(w,h,base,n){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.fillStyle=base;g.fillRect(0,0,w,h);
+ for(let i=0;i<n;i++){const v=Math.random()*255|0;g.strokeStyle='rgba('+v+','+v+','+v+',.35)';const x=Math.random()*w,y=Math.random()*h;g.beginPath();g.moveTo(x,y);g.lineTo(x+(Math.random()-.5)*6,y+Math.random()*10);g.stroke()}return c}
+const furBump=new T.CanvasTexture(noise(256,256,'#808080',7000));furBump.wrapS=furBump.wrapT=T.RepeatWrapping;
+const ft=new T.CanvasTexture(noise(512,512,'#2a231c',5000));ft.wrapS=ft.wrapT=T.RepeatWrapping;ft.repeat.set(40,40);
+const floor=new T.Mesh(new T.PlaneGeometry(240,240).rotateX(-Math.PI/2),new T.MeshStandardMaterial({map:ft,bumpMap:ft,bumpScale:3,roughness:.95}));scene.add(floor);
+const bloodTex=radial('rgba(110,0,0,.9)','rgba(60,0,0,0)');
+for(let i=0;i<14;i++){const d=new T.Mesh(new T.PlaneGeometry(2+Math.random()*4,2+Math.random()*4).rotateX(-Math.PI/2),new T.MeshBasicMaterial({map:bloodTex,transparent:true,depthWrite:false}));d.position.set((Math.random()-.5)*30,.02,6-Math.random()*50);d.rotation.y=Math.random()*6;scene.add(d)}
+
+function radial(c1,c2){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),r=g.createRadialGradient(32,32,0,32,32,32);r.addColorStop(0,c1);r.addColorStop(1,c2);g.fillStyle=r;g.fillRect(0,0,64,64);return new T.CanvasTexture(c)}
+const glowMat=new T.SpriteMaterial({map:radial('rgba(255,40,20,1)','rgba(255,0,0,0)'),blending:T.AdditiveBlending,depthWrite:false,transparent:true});
+const shadowMat=new T.MeshBasicMaterial({map:radial('rgba(0,0,0,.85)','rgba(0,0,0,0)'),transparent:true,depthWrite:false});
+const sph=new T.SphereGeometry(1,20,14),shGeo=new T.PlaneGeometry(3.2,3.6).rotateX(-Math.PI/2);
+const pink=new T.MeshStandardMaterial({color:0x8a5558,roughness:.6});
+const tailM=new T.MeshStandardMaterial({color:0x9a6a68,roughness:.7});
+const eyeM=new T.MeshBasicMaterial({color:0xff2a1a}),blackM=new T.MeshBasicMaterial({color:0x000000}),mouthM=new T.MeshBasicMaterial({color:0x3a0000});
+const toothM=new T.MeshStandardMaterial({color:0xe8e0c8,roughness:.4}),bloodM=new T.MeshStandardMaterial({color:0x7a0505,roughness:.3});
+const toothG=new T.ConeGeometry(.045,.26,8).rotateX(Math.PI),toothG2=new T.ConeGeometry(.03,.14,6);
+const wGeo=new T.BufferGeometry().setFromPoints([[0,0,0,.9,.15,.6],[0,0,0,.95,0,.35],[0,0,0,.85,-.2,.15]].flatMap(a=>[new T.Vector3(a[0],a[1],a[2]),new T.Vector3(a[3],a[4],a[5])]));
+const wMat=new T.LineBasicMaterial({color:0xcccccc,transparent:true,opacity:.6});
+
+function S(geo,mat,x,y,z,sx,sy,sz){const m=new T.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);return m}
+function build(){
+ const fur=new T.MeshStandardMaterial({color:new T.Color().setHSL(.07+Math.random()*.03,.12,.2+Math.random()*.14),roughness:.95,bumpMap:furBump,bumpScale:2.5});
+ const g=new T.Group();g.rotation.order='YXZ';const b=new T.Group();g.add(b);
+ b.add(S(sph,fur,0,.55,0,.55,.5,1.05));
+ b.add(S(sph,fur,0,.55,1,.36,.34,.5));
+ b.add(S(new T.ConeGeometry(.2,.6,14).rotateX(Math.PI/2),fur,0,.5,1.45,1,1,1));
+ b.add(S(sph,pink,0,.5,1.76,.07,.07,.07));
+ b.add(S(sph,mouthM,0,.4,1.5,.17,.06,.3));
+ b.add(S(sph,mouthM,0,.3,1.3,.2,.07,.4));
+ [-1,1].forEach(s=>{const t=new T.Mesh(toothG,toothM);t.position.set(s*.06,.36,1.66);t.rotation.x=.15;b.add(t);const u=new T.Mesh(toothG2,toothM);u.position.set(s*.09,.34,1.5);b.add(u);b.add(S(sph,bloodM,s*.13,.28,1.6,.03,.11,.03));b.add(S(sph,bloodM,s*.05,.3,1.7,.025,.09,.025))});
+ [-1,1].forEach(s=>{
+  const ear=S(sph,pink,s*.3,.92,.85,.3,.32,.05);ear.rotation.y=s*.5;b.add(ear);
+  const e=S(sph,eyeM,s*.19,.69,1.36,.12,.12,.12);e.add(S(sph,blackM,0,0,.85,.12,.8,.2));const sp=new T.Sprite(glowMat);sp.scale.setScalar(9);e.add(sp);b.add(e);
+  const w=new T.LineSegments(wGeo,wMat);w.position.set(s*.08,.5,1.65);w.scale.x=s;b.add(w);
+ });
+ const legs=[];
+ [[-1,.6,0],[1,.6,Math.PI],[-1,-.5,Math.PI],[1,-.5,0]].forEach(l=>{
+  const p=new T.Group();p.position.set(l[0]*.38,.5,l[1]);
+  p.add(new T.Mesh(new T.CylinderGeometry(.07,.05,.5).translate(0,-.25,0),fur));
+  p.add(S(sph,pink,0,-.5,.08,.09,.04,.15));p.userData.ph=l[2];b.add(p);legs.push(p)});
+ const tail=[];let par=b;
+ for(let j=0;j<8;j++){
+  const seg=new T.Group();seg.position.set(0,j?0:.45,j?-.4:-1.0);
+  seg.add(new T.Mesh(new T.CylinderGeometry(.05-j*.004,.054-j*.004,.4,6).rotateX(Math.PI/2).translate(0,0,-.2),tailM));
+  par.add(seg);tail.push(seg);par=seg}
+ const shadow=new T.Mesh(shGeo,shadowMat);shadow.position.y=.03;scene.add(shadow);
+ scene.add(g);
+ return{g,b,legs,tail,shadow,yaw:0,t:Math.random()*10}
+}
+
+const mice=[];let started=false,nx=0,ny=0,shake=0,ac=null;
+function reset(m){m.z=-(35+Math.random()*55);m.x=(Math.random()-.5)*16;m.sp=7+Math.random()*7;m.leap=Math.random()<.5;m.state=0;m.sw=Math.random()*6;m.sc=.8+Math.random()*.6;m.chase=Math.random()<.5;m.yaw=0;m.g.visible=m.shadow.visible=true}
+function add(){if(mice.length>=40)return;const m=build();reset(m);m.z=-(20+Math.random()*60);mice.push(m)}
+
+function sound(f,d,v){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime;o.type='sawtooth';o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*.45,t+d);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+d+.02)}catch(e){}}
+const flash=document.getElementById('flash');
+function scare(){flash.animate([{opacity:.8},{opacity:0},{opacity:.4},{opacity:0}],{duration:500});shake=1;sound(2600+Math.random()*1200,.25,.12)}
+
+const hero=build();hero.st=0;hero.p=0;hero.shadow.visible=false;let HS=3.9,HY=-.8;function fitHero(){HS=Math.min(3.9,4.7*cam.aspect);HY=-.2*HS;hero.g.scale.setScalar(HS)}fitHero();addEventListener('resize',fitHero);hero.g.position.set(0,HY,.4);
+function heroLeap(){hero.st=1;hero.p=0;sound(320,.6,.2)}
+function heroUpdate(dt,now){
+ if(hero.st===0){
+  hero.g.rotation.set(-ny*.15+Math.sin(now*1.2)*.02,nx*.6,0);
+  hero.g.scale.setScalar(HS*(1+Math.sin(now*2.2)*.012));hero.g.position.set(0,HY,.4);
+  hero.tail.forEach((s,j)=>{s.rotation.y=Math.sin(now*1.5-j*.6)*.35});
+  hero.legs.forEach(l=>{l.rotation.x=Math.sin(now*3+l.userData.ph)*.04});
+ }else if(hero.st===1){
+  hero.p+=dt/.7;const p=Math.min(hero.p,1),e=p*p;
+  hero.g.position.set(0,HY+.5*Math.sin(Math.PI*p),.4+3.2*e);hero.g.scale.setScalar(HS*(1+e*.3));
+  hero.g.rotation.set(-.3*Math.sin(Math.PI*p),0,0);hero.shadow.visible=false;
+  if(p>=1){hero.st=2;hero.g.visible=false;scare()}
+ }
+}
+const clock=new T.Clock();
+function tick(){
+ requestAnimationFrame(tick);
+ const dt=Math.min(clock.getDelta(),.05),now=clock.elapsedTime;
+ cam.position.x+=(nx*1.4-cam.position.x)*.05;
+ cam.position.y=1.6+ny*.4;
+ shake=Math.max(0,shake-dt*2.2);
+ cam.position.x+=(Math.random()-.5)*shake*.35;cam.position.y+=(Math.random()-.5)*shake*.35;
+ cam.lookAt(nx*1.2,1.1,0);
+ torch.position.set(nx*5,3.2+ny*2,9.5);
+ heroUpdate(dt,now);
+ torch.intensity=Math.random()<.04?.2:2.2;under.intensity=1.6+Math.sin(now*9)*.4-(Math.random()<.03?1.4:0);glowMat.opacity=.75+Math.sin(now*5)*.25;
+ for(const m of mice){
+  m.t+=dt*m.sp*1.9;
+  const wx=nx*9;let px,py=0,pz;
+  if(m.state===0){
+   const ox=m.x;
+   m.z+=m.sp*dt;
+   m.x+=((m.chase?wx:m.x)-m.x)*dt*.7+Math.sin(now*1.3+m.sw)*dt*1.8;
+   const target=Math.atan2(m.x-ox,m.sp*dt);m.yaw+=(target-m.yaw)*.15;
+   px=m.x;pz=m.z;py=Math.abs(Math.sin(m.t*.5))*.06*m.sc;
+   m.g.rotation.set(0,m.yaw,Math.sin(m.t)*.04);m.g.scale.setScalar(m.sc);
+   if(m.leap&&m.z>-8){m.state=1;m.p=0;m.sx=m.x;m.sz=m.z;m.tx=cam.position.x+(Math.random()-.5)*1.4;m.ty=1.5+(Math.random()-.5)*.6;m.tz=8.6;m.ya=Math.atan2(m.tx-m.sx,m.tz-m.sz)}
+   else if(m.z>cam.position.z+4)reset(m);
+  }else{
+   m.p+=dt/.85;const p=Math.min(m.p,1),e=p*p*(3-2*p);
+   px=m.sx+(m.tx-m.sx)*e;pz=m.sz+(m.tz-m.sz)*e;py=m.ty*e+Math.sin(Math.PI*p)*2.4;
+   m.g.rotation.set(-.15-Math.sin(Math.PI*p)*.55+p*.5,m.ya,0);m.g.scale.setScalar(m.sc*(1+p*1.8));
+   if(p>=1){scare();reset(m);m.z=-(40+Math.random()*30);continue}
+  }
+  m.g.position.set(px,py,pz);
+  m.shadow.position.set(px,.03,pz);m.shadow.rotation.y=m.g.rotation.y;m.shadow.scale.setScalar(m.sc*(m.state?Math.max(.3,1-py*.25):1));
+  const air=m.state===1;
+  m.legs.forEach(l=>{l.rotation.x=air?-.9:Math.sin(m.t+l.userData.ph)*.8});
+  m.tail.forEach((s,j)=>{s.rotation.y=Math.sin(m.t*.6-j*.6)*.32;s.rotation.x=-.04});
+ }
+ ren.render(scene,cam);
+}
+
+function begin(e){e.preventDefault();if(started)return;started=true;
+ document.getElementById('intro').classList.add('off');document.getElementById('more').style.display='block';heroLeap();
+ setInterval(()=>{sound(60,.15,.25);setTimeout(()=>sound(55,.18,.2),220)},1000);
+ try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime;o.frequency.value=48;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.35,t+.2);g.gain.exponentialRampToValueAtTime(.0001,t+3);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+3.1)}catch(_){}
+ for(let i=0;i<14;i++)setTimeout(()=>{add();if(i%3===0)sound(2400+Math.random()*1400,.2,.05)},900+i*220);
+}
+document.getElementById('go').addEventListener('click',begin);
+document.getElementById('more').addEventListener('click',()=>{for(let i=0;i<8;i++)add()});
+function mv(e){const p=e.touches?e.touches[0]:e;nx=(p.clientX/innerWidth)*2-1;ny=-((p.clientY/innerHeight)*2-1)}
+addEventListener('mousemove',mv);addEventListener('touchmove',mv,{passive:true});addEventListener('touchstart',mv,{passive:true});
+tick();
+})();
+</script>
+</body>
+</html>
